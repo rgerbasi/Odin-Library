@@ -131,3 +131,7 @@ svg {
 .bookcard hr {
   width:90%;
 }
+.library button {
+  background: none;
+  border-radius: 0;
+}

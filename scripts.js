@@ -3,18 +3,37 @@ const myLibrary = [];
 
 const libraryDisplay = document.querySelector('.library');
 
-function Book() {
+function Book(props = {}) {
     // constructor
+    if (!new.target) { throw Error("Must use 'new' operator to call constructor"); }
     this.id = crypto.randomUUID();
 
+    this.title = props.title ?? "";
+    this.author = props.author ?? "";
+    this.pages = props.pages ?? 0;
+    this.read = props.read ?? false;
+}
+Book.prototype.toggleRead = function () {
+        this.read = !this.read;
+}
+Book.prototype.info = function () {
+    let result = capitalize(this.title);
+    result += " by " + capitalize(this.author) + ", ";
+    result += this.pages + " pages, ";
+    result += (this.read ? "has been read" : "not read yet");
+    return result;
 }
 
+function capitalize(words) {
+    if (words == null) return;
+    return words.split(" ").map( word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ")
+}
+
+
 function addBookToLibrary(props) {
-    let book = new Book();
-    for (let [key, val] of Object.entries(props)) {
-        book[key] = val;
-    }
+    let book = new Book(props);
     myLibrary.push(book)
+    console.log(book.info())
 }
 
 function displayBook(book) {
@@ -39,7 +58,7 @@ function preloadLibrary() {
     addBookToLibrary({'title': 'The Alchemist','pages': 197,'author': 'Paulo Coelho','read' : true,});
 }
 
-const svgNamespace = "http://www.w3.org/2000/svg"
+const svgNamespace = "http://www.w3.org/2000/svg";
 function createCard(book) {
     let divbookspace = document.createElement("div");
     divbookspace.classList.add('bookspace');
@@ -68,7 +87,7 @@ function createCard(book) {
 
             li.innerText = textContent;
             ul.appendChild(li); 
-            // appended child to list
+            // appended child to list and append a little line for the title
             if (key === "title") {
                 ul.appendChild(document.createElement("hr"))
             }
