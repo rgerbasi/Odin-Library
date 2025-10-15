@@ -2,6 +2,8 @@
 const myLibrary = [];
 
 const libraryDisplay = document.querySelector('.library');
+const newBookButton = document.querySelector('.header > button');
+console.log(newBookButton);
 
 function Book(props = {}) {
     // constructor
@@ -33,7 +35,6 @@ function capitalize(words) {
 function addBookToLibrary(props) {
     let book = new Book(props);
     myLibrary.push(book)
-    console.log(book.info())
 }
 
 function displayBook(book) {
@@ -47,7 +48,7 @@ function displayLibrary() {
     for (let book of myLibrary) {
         // displayBook(book);
         // console.log(book);
-        createCard(book);
+        libraryDisplay.appendChild(createCard(book));
     }
 }
 
@@ -59,46 +60,57 @@ function preloadLibrary() {
 }
 
 const svgNamespace = "http://www.w3.org/2000/svg";
+
+// trying to separate concerns
 function createCard(book) {
-    let divbookspace = document.createElement("div");
-    divbookspace.classList.add('bookspace');
-    let divbookcard = document.createElement("div");
-    divbookcard.classList.add('bookcard');
-    let ul = document.createElement("ul");
-
-    let editButton = createSVGButton("#icon-pencil");
-    let deleteButton = createSVGButton("#icon-close");
-  
-    for (let [key, val] of Object.entries(book)) {
-        if (key === "id") {
-            // unsure of where to put id's to remove later
-            divbookspace.setAttribute("data-bookID", val)
-            editButton.setAttribute("data-bookID", val)
-            deleteButton.setAttribute("data-bookID", val)
-        }  else {
-            let li = document.createElement("li");
-            li.classList.add(key)
-            let textContent = key.charAt(0).toUpperCase() + key.slice(1) + ": " + val
-            if (key === "read") {
-                textContent = val ? "Have Read It" : "Have Not Read it";
-                let className = val  ? "read" : "unread";
-                divbookcard.classList.add(className); //style for border
-            }
-
-            li.innerText = textContent;
-            ul.appendChild(li); 
-            // appended child to list and append a little line for the title
-            if (key === "title") {
-                ul.appendChild(document.createElement("hr"))
-            }
-           
-        }
-    }
-    // finish appending children for card
-    divbookcard.append(ul, editButton, deleteButton);
-    divbookspace.appendChild(divbookcard);
-    libraryDisplay.appendChild(divbookspace);
+    let nodes = createCardNodes();
+    nodes = setAttributes(book, nodes);
+    return assembleNodes(nodes);
 }
+function createCardNodes() {
+    let nodes = {};
+    nodes['bookcard'] = document.createElement('div');
+    nodes['info-wrapper'] = document.createElement('div');
+    nodes['title'] = document.createElement('div');
+    nodes['hr'] = document.createElement('hr');
+    nodes['info'] = document.createElement('div');
+    nodes['button-wrapper'] = document.createElement('div');
+    let buttons = [];
+    buttons.push(
+        {btnNode: createSVGButton('#icon-close'), type: 'delete'},
+        {btnNode: createSVGButton('#icon-pencil'), type: 'edit'}
+    );
+    nodes['buttons'] = buttons;
+    return nodes;
+}
+function setAttributes(book, nodes) {
+    nodes['bookcard'].classList.add('bookcard');
+    nodes['bookcard'].setAttribute('data-book-id', book.id);
+    nodes['info-wrapper'].classList.add('info-wrapper');
+    nodes['title'].classList.add('title');
+    nodes['title'].innerText = capitalize(book.title);
+    nodes['info'].classList.add('info');
+    nodes['info'].innerText = book.info();
+    nodes['button-wrapper'].classList.add('button-wrapper');
+    addButtonListeners(nodes['buttons']);
+    return nodes;
+}
+function assembleNodes(nodes) {
+    for ( button of nodes['buttons']) {
+        nodes['button-wrapper'].appendChild(button.btnNode);
+    }
+    nodes['info-wrapper'].appendChild(nodes['title']);
+    nodes['info-wrapper'].appendChild(nodes['hr']);
+    nodes['info-wrapper'].appendChild(nodes['info']);
+    nodes['bookcard'].appendChild(nodes['info-wrapper']);
+    nodes['bookcard'].appendChild(nodes['button-wrapper']);
+    return nodes['bookcard'];
+}
+
+function addButtonListeners(buttons) {
+    console.log(buttons);
+}
+
 
 function createSVGButton(id) {
     let btn = document.createElement("button");
