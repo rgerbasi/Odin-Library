@@ -13,7 +13,8 @@ const noButton = document.querySelector('#no');
 const yesButton = document.querySelector('#yes');
 
 let state = {
-    deletingBook: null,
+    deletingBookCard: null,
+    editingBookCard: null,
     editMode: false,
 }
 function Book(props = {}) {
@@ -38,6 +39,7 @@ Book.prototype.info = function () {
     return result;
 }
 Book.prototype.update = function (props = {}) {
+   
     this.title = props.title ?? "";
     this.author = props.author ?? "";
     this.pages = props.pages ?? 0;
@@ -58,8 +60,6 @@ function displayBook(book) {
 }
 function displayLibrary() {
     for (let book of myLibrary) {
-        // displayBook(book);
-        // console.log(book);
         libraryDisplay.appendChild(createCard(book));
     }
 }
@@ -145,22 +145,36 @@ function removeBookFromDisplay(bookCard){
     bookCard.remove();
 }
 function deleteButtonClicked(bookCard){
-    state.deletingBook = bookCard;
+    state.deletingBookCard = bookCard;
     confirmDialogNode.showModal();
 }
 function handleDelete(event) {
-    if (!state.deletingBook) return;
-    let deleteId = state.deletingBook.dataset.bookId;
+    if (!state.deletingBookCard) return;
+    let deleteId = state.deletingBookCard.dataset.bookId;
     let indexToRemove = myLibrary.findIndex(book => book.id === deleteId);
     myLibrary.splice(indexToRemove,1);
-    removeBookFromDisplay(state.deletingBook);
-    state.deletingBook = null;
+    removeBookFromDisplay(state.deletingBookCard);
+    state.deletingBookCard = null;
     handleClose(event);
 }
 function editButtonClicked(bookCard){
+    let bookId = bookCard.dataset.bookId;
+    let book = myLibrary.find( book => bookId == book.id);
+    state.editingBookCard = bookCard;
+    //prepopulate form for editing
+    formNode.querySelector('input#title').value = book.title;
+    formNode.querySelector('input#author').value = book.author;
+    formNode.querySelector('input#pages').value = book.pages;
+
+    if (book.read) {
+        formNode.querySelector('input#read').checked = true;
+    } else {
+        formNode.querySelector('input#not-read').checked = true;
+    }
     state.editMode = true;
     submitButton.textContent = "Update";
-    // dialogNode.showModal();
+    formNode.querySelector('h1').textContent = "Update a Book";
+    dialogNode.showModal();
 }
 function readButtonClicked(bookCard, btn){
     let bookId = bookCard.dataset.bookId;
@@ -173,6 +187,7 @@ function updateCard(book, oldCard) {
 }
 function handleNewBook(event) {
     submitButton.textContent = "Add Book";
+    formNode.querySelector('h1').textContent = "Add a New Book";
     state.editMode = false;
     dialogNode.showModal();
 }
@@ -188,13 +203,15 @@ function handleSubmit(event) {
     
     const formData = new FormData(formNode);
     const data = Object.fromEntries(formData.entries());
-    data.read = Boolean(data.read);
+    data.read = data.read === "true";
 
     //NEED TO DO SOMETHING FOR SUBMITTING EDIT OR ADDDING NEW
     if (state.editMode) {
-        console.log('edit');
-
+        let book = myLibrary.find( book => state.editingBookCard.dataset.bookId == book.id);
+        book.update(data);
+        updateCard(book, state.editingBookCard);
         state.editMode = false;
+        state.editingBookCard = null;
     } else {
         addBookToDisplay(addBookToLibrary(data));
     
@@ -204,7 +221,6 @@ function handleSubmit(event) {
 }
 
 function handleClose(event) {
-    // console.log(event.target.closest('dialog'));
     let dialogToClose = event.target.closest('dialog');
     dialogToClose.close();
 }

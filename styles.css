@@ -287,4 +287,7 @@ input[type="radio"] {
   border: var(--mid-tone) solid 0.5rem;
 }
 
+.confirm-dialog button {
+  padding: 1rem 3rem;
+}
 /* test */
