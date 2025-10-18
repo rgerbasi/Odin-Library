@@ -222,6 +222,7 @@ function handleSubmit(event) {
 
 function handleClose(event) {
     let dialogToClose = event.target.closest('dialog');
+     formNode.reset();
     dialogToClose.close();
 }
 function handleCardButtonsClicked(event) {
