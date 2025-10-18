@@ -37,6 +37,12 @@ Book.prototype.info = function () {
     result += (this.read ? ", has been read" : ", not read yet");
     return result;
 }
+Book.prototype.update = function (props = {}) {
+    this.title = props.title ?? "";
+    this.author = props.author ?? "";
+    this.pages = props.pages ?? 0;
+    this.read = props.read ?? false;
+}
 
 function addBookToLibrary(props) {
     let book = new Book(props);
@@ -136,9 +142,7 @@ function addBookToDisplay(book) {
 }
 
 function removeBookFromDisplay(bookCard){
-    console.log(bookCard)
     bookCard.remove();
-
 }
 function deleteButtonClicked(bookCard){
     state.deletingBook = bookCard;
@@ -146,7 +150,6 @@ function deleteButtonClicked(bookCard){
 }
 function handleDelete(event) {
     if (!state.deletingBook) return;
-    console.log(state.deletingBook.dataset);
     let deleteId = state.deletingBook.dataset.bookId;
     let indexToRemove = myLibrary.findIndex(book => book.id === deleteId);
     myLibrary.splice(indexToRemove,1);
@@ -160,7 +163,13 @@ function editButtonClicked(bookCard){
     // dialogNode.showModal();
 }
 function readButtonClicked(bookCard, btn){
-
+    let bookId = bookCard.dataset.bookId;
+    let book = myLibrary.find( book => bookId == book.id);
+    book.toggleRead();
+    updateCard(book, bookCard);
+}
+function updateCard(book, oldCard) {
+    oldCard.replaceWith(createCard(book));
 }
 function handleNewBook(event) {
     submitButton.textContent = "Add Book";
@@ -184,11 +193,13 @@ function handleSubmit(event) {
     //NEED TO DO SOMETHING FOR SUBMITTING EDIT OR ADDDING NEW
     if (state.editMode) {
         console.log('edit');
+
         state.editMode = false;
     } else {
         addBookToDisplay(addBookToLibrary(data));
     
     }
+    formNode.reset();
     dialogNode.close();
 }
 
@@ -226,14 +237,24 @@ function handleHover(event) {
     let currentState = use.getAttribute('href');
 
     if (event.type === 'mouseover') {
+        // btn.dataset.type
         use.setAttribute('href', toggleState(currentState))
     } else if (event.type === 'mouseout'){
-        use.setAttribute('href', toggleState(currentState))
+        if (btn.dataset.type === 'read') {
+            use.setAttribute('href', mapReadStateToIcon(btn.dataset.readState));
+        } else {
+            use.setAttribute('href', toggleState(currentState))
+        }
     }
     
 }
 
-
+function mapReadStateToIcon(state) {
+    let map = {
+        'true': '#icon-eye', 'false': '#icon-eye-outline'
+    }
+    return map[state];
+}
 function toggleState(id) {
     let oppositeState = {
         '#icon-pencil-outline' : '#icon-pencil',

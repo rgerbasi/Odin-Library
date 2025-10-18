@@ -91,14 +91,16 @@ html,body {
 
 .bookcard {
   display: flex;
-  justify-content: space-between;
+  /* justify-content: space-between; */
   gap: 0.5rem;
 }
 .info-wrapper {
+  flex: 1;
   display: flex;
   flex-flow: column nowrap;
-  gap: 0.5rem;
-  
+  /* gap: 0.5rem; */
+  justify-content: space-evenly;
+  text-align: center;
 }
 .button-wrapper {
   flex: none;
@@ -221,7 +223,6 @@ dialog button:hover {
 .title {
   font-size: 1.25rem;
   font-weight: bold;
-  margin: 0 auto;
 }
 
 dialog {
