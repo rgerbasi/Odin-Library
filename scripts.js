@@ -1,10 +1,21 @@
 
 const myLibrary = [];
 
+// DOM Objects
 const libraryDisplay = document.querySelector('.library');
 const newBookButton = document.querySelector('.header > button');
-console.log(newBookButton);
+const dialogNode = document.querySelector('#form-dialog');
+const confirmDialogNode = document.querySelector('#confirm-dialog');
+const formNode = document.querySelector('form');
+const closeButton = document.querySelector('#close');
+const submitButton = document.querySelector('#submit');
+const noButton = document.querySelector('#no');
+const yesButton = document.querySelector('#yes');
 
+let state = {
+    deletingBook: null,
+    editMode: false,
+}
 function Book(props = {}) {
     // constructor
     if (!new.target) { throw Error("Must use 'new' operator to call constructor"); }
@@ -20,21 +31,17 @@ Book.prototype.toggleRead = function () {
 }
 Book.prototype.info = function () {
     let result = capitalize(this.title);
-    result += " by " + capitalize(this.author) + ", ";
-    result += this.pages + " pages, ";
-    result += (this.read ? "has been read" : "not read yet");
+    if (this.author){ result += " by " + capitalize(this.author) + ", ";}
+    if (this.pages) {result += this.pages + " pages";}
+    
+    result += (this.read ? ", has been read" : ", not read yet");
     return result;
 }
-
-function capitalize(words) {
-    if (words == null) return;
-    return words.split(" ").map( word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ")
-}
-
 
 function addBookToLibrary(props) {
     let book = new Book(props);
     myLibrary.push(book)
+    return book;
 }
 
 function displayBook(book) {
@@ -43,7 +50,6 @@ function displayBook(book) {
     }
 
 }
-
 function displayLibrary() {
     for (let book of myLibrary) {
         // displayBook(book);
@@ -77,8 +83,9 @@ function createCardNodes() {
     nodes['button-wrapper'] = document.createElement('div');
     let buttons = [];
     buttons.push(
-        {btnNode: createSVGButton('#icon-close'), type: 'delete'},
-        {btnNode: createSVGButton('#icon-pencil'), type: 'edit'}
+        {btnNode: createSVGButton('#icon-close-outline'), type: 'delete'},
+        {btnNode: createSVGButton('#icon-pencil-outline'), type: 'edit'},
+        {btnNode: createSVGButton('#icon-eye-outline'), type: 'read'}
     );
     nodes['buttons'] = buttons;
     return nodes;
@@ -92,11 +99,18 @@ function setAttributes(book, nodes) {
     nodes['info'].classList.add('info');
     nodes['info'].innerText = book.info();
     nodes['button-wrapper'].classList.add('button-wrapper');
-    addButtonListeners(nodes['buttons']);
+    for ( let button of nodes['buttons']) {
+        button.btnNode.setAttribute('data-type', button.type);
+        if (button.type === 'read' ) {
+            //read status
+            button.btnNode.setAttribute('data-read-state', book.read);
+            if (book.read) { button.btnNode.querySelector('use').setAttribute( 'href', '#icon-eye'); }
+        }
+    }
     return nodes;
 }
 function assembleNodes(nodes) {
-    for ( button of nodes['buttons']) {
+    for ( let button of nodes['buttons']) {
         nodes['button-wrapper'].appendChild(button.btnNode);
     }
     nodes['info-wrapper'].appendChild(nodes['title']);
@@ -106,24 +120,157 @@ function assembleNodes(nodes) {
     nodes['bookcard'].appendChild(nodes['button-wrapper']);
     return nodes['bookcard'];
 }
-
-function addButtonListeners(buttons) {
-    console.log(buttons);
-}
-
-
 function createSVGButton(id) {
     let btn = document.createElement("button");
     let svg = document.createElementNS(svgNamespace, 'svg')
     svg.setAttribute("viewBox", "0 0 24 24");
 
     let use = document.createElementNS(svgNamespace, 'use')
-    use.setAttributeNS(null,'href', id)
+    use.setAttribute('href', id)
     svg.appendChild(use);
     btn.appendChild(svg);
     return btn;
 }
+function addBookToDisplay(book) {
+    libraryDisplay.appendChild(createCard(book));
+}
 
+function removeBookFromDisplay(bookCard){
+    console.log(bookCard)
+    bookCard.remove();
+
+}
+function deleteButtonClicked(bookCard){
+    state.deletingBook = bookCard;
+    confirmDialogNode.showModal();
+}
+function handleDelete(event) {
+    if (!state.deletingBook) return;
+    console.log(state.deletingBook.dataset);
+    let deleteId = state.deletingBook.dataset.bookId;
+    let indexToRemove = myLibrary.findIndex(book => book.id === deleteId);
+    myLibrary.splice(indexToRemove,1);
+    removeBookFromDisplay(state.deletingBook);
+    state.deletingBook = null;
+    handleClose(event);
+}
+function editButtonClicked(bookCard){
+    state.editMode = true;
+    submitButton.textContent = "Update";
+    // dialogNode.showModal();
+}
+function readButtonClicked(bookCard, btn){
+
+}
+function handleNewBook(event) {
+    submitButton.textContent = "Add Book";
+    state.editMode = false;
+    dialogNode.showModal();
+}
+
+formNode.noValidate = true;
+function handleSubmit(event) {
+    event.preventDefault();
+    
+    if (!formNode.checkValidity()) {
+        formNode.reportValidity();
+        return;
+    }
+    
+    const formData = new FormData(formNode);
+    const data = Object.fromEntries(formData.entries());
+    data.read = Boolean(data.read);
+
+    //NEED TO DO SOMETHING FOR SUBMITTING EDIT OR ADDDING NEW
+    if (state.editMode) {
+        console.log('edit');
+        state.editMode = false;
+    } else {
+        addBookToDisplay(addBookToLibrary(data));
+    
+    }
+    dialogNode.close();
+}
+
+function handleClose(event) {
+    // console.log(event.target.closest('dialog'));
+    let dialogToClose = event.target.closest('dialog');
+    dialogToClose.close();
+}
+function handleCardButtonsClicked(event) {
+    const btn = event.target.closest('button');
+    if (!btn) return;
+
+    let type = btn.dataset.type;
+    const bookCard = event.target.closest('.bookcard');
+    switch (type) {
+        case 'delete':
+            deleteButtonClicked(bookCard);
+            break;
+        case 'edit':
+            editButtonClicked(bookCard);
+            break;
+        case 'read':
+            readButtonClicked(bookCard, btn);
+            break;
+    }
+}
+
+// change svg's display other state
+function handleHover(event) {
+    const btn = event.target.closest('button')
+    if (!btn) return;
+    if (event.relatedTarget && btn.contains(event.relatedTarget)) return; //dont switch states if inside button
+
+    const use = btn.querySelector('use');
+    let currentState = use.getAttribute('href');
+
+    if (event.type === 'mouseover') {
+        use.setAttribute('href', toggleState(currentState))
+    } else if (event.type === 'mouseout'){
+        use.setAttribute('href', toggleState(currentState))
+    }
+    
+}
+
+
+function toggleState(id) {
+    let oppositeState = {
+        '#icon-pencil-outline' : '#icon-pencil',
+        '#icon-close-outline' : '#icon-close',
+        '#icon-eye-outline': '#icon-eye',
+        '#icon-eye' : '#icon-eye-outline',
+        '#icon-close' : '#icon-close-outline',
+        '#icon-pencil': '#icon-pencil-outline'
+    }
+    return oppositeState[id];
+}
+//event handlers
+newBookButton.addEventListener('click', handleNewBook);
+libraryDisplay.addEventListener('click', handleCardButtonsClicked);
+libraryDisplay.addEventListener('mouseover', handleHover);
+libraryDisplay.addEventListener('mouseout', handleHover);
+closeButton.addEventListener('click', handleClose);
+formNode.addEventListener('submit', handleSubmit);
+noButton.addEventListener('click', handleClose);
+yesButton.addEventListener('click', handleDelete);
+// close when clicking outside dialogue
+dialogNode.addEventListener('click', (e) => {
+    if (e.target === dialogNode) {
+        handleClose(e);
+    }
+})
+confirmDialogNode.addEventListener('click', (e) => {
+    if (e.target === confirmDialogNode) {
+        handleClose(e);
+    }
+})
+
+//helpers
+function capitalize(words) {
+    if (words == null) return;
+    return words.split(" ").map( word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ");
+}
 // calling
 preloadLibrary();
 displayLibrary();
