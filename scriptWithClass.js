@@ -21,10 +21,10 @@ class Book {
         this.read = !this.read;
     }
     getInfoString() {
-        let result = Utils.capitalize(this.title);
-        if (this.author){ result += " by " + Utils.capitalize(this.author) + ", ";}
-        if (this.pages) {result += this.pages + " pages";}
-        result += (this.read ? ", has been read" : ", not read yet");
+        let result = Utils.capitalize(this.title) + ", ";
+        if (this.author)  result += "by " + Utils.capitalize(this.author) + ", ";
+        if (this.pages > 0) result += this.pages + " pages, ";
+        result += (this.read ? "has been read" : "not read yet");
         return result;
     }
     getProperties() {
@@ -62,8 +62,12 @@ class Library {
         return book;
     }
     removeBookFromLibraryById(idToRemove) {
-        let indexToRemove = this.#myLibrary.findIndex(book => book.getProperties().id === idToRemove);
+        let indexToRemove = this.#myLibrary.findIndex(book => book.getID() === idToRemove);
         this.#myLibrary.splice(indexToRemove,1);
+    }
+    getBookById(id) {
+        let index = this.#myLibrary.findIndex(book => book.getID() === id);
+        return this.#myLibrary[index];
     }
     getBooks() {
         return [...this.#myLibrary];
@@ -81,22 +85,53 @@ class LibraryInterface {
     //fields
     #Library;
     #DOM;
-    state = {deletingBookCard: null, editingBookCard: null, editMode: false,}
+    #bookCards = {};
+    #handlers = {};
+    state = {bookCardToDelete: null, bookCardToEdit: null, editMode: false,}
 
     constructor(Library){
         this.#Library = Library;
-        this.cacheDOM();
-        this.connectEventHandlers();
+        this.#cacheDOM();
+        this.#connectEventHandlers();
         this.renderLibraryCards();
     }
     //methods
-    connectEventHandlers() {
-        this.#DOM.newBookButton.addEventListener('click', this.#handleNewBook);
+    renderLibraryCards() {
+        this.#DOM.libraryDisplay.textContent = '';
+        for (let book of this.#Library.getBooks()) {
+            this.#DOM.libraryDisplay.appendChild(this.#createCard(book));
+        }
+    }
+    #connectEventHandlers() {
+        //button handlers
+        this.#handlers = {
+            'delete': this.#handleDeleteClicked,
+            'edit': this.#handleEditClicked,
+            'read':this.#handleReadClicked
+        }
+        //library display events
         this.#DOM.libraryDisplay.addEventListener('click', this.#handleClickDelegation);
         this.#DOM.libraryDisplay.addEventListener('mouseover', this.#handleHover);
         this.#DOM.libraryDisplay.addEventListener('mouseout', this.#handleHover);
+
+        //form events
+        this.#DOM.newBookButton.addEventListener('click', this.#handleNewBook);
+        this.#DOM.closeButton.addEventListener('click', this.#handleClose);
+        this.#DOM.formNode.addEventListener('submit',this.#handleSubmit);
+        this.#DOM.formNode.noValidate = true;
+        //confirmation buttons
+        this.#DOM.yesButton.addEventListener('click', this.#handleDeleteConfirmed);
+        this.#DOM.noButton.addEventListener('click',this.#handleClose);
+
+        //events for click outside of form
+        this.#DOM.dialogNode.addEventListener('click', (event) => {
+            if (event.target === this.#DOM.dialogNode) this.#handleClose(event);
+        });
+        this.#DOM.confirmDialogNode.addEventListener('click', (event) => {
+            if (event.target === this.#DOM.confirmDialogNode) this.#handleClose(event);
+        });
     }
-    cacheDOM() {
+    #cacheDOM() {
         this.#DOM = {
             libraryDisplay: document.querySelector('.library'),
             newBookButton: document.querySelector('.header > button'),
@@ -109,12 +144,8 @@ class LibraryInterface {
             yesButton: document.querySelector('#yes'),
         }
     }
-    renderLibraryCards() {
-        for (let book of this.#Library.getBooks()) {
-            this.#DOM.libraryDisplay.appendChild(LibraryInterface.#createCard(book));
-        }
-    }
-    static #createCard(book) {
+  
+    #createCard(book) {
         let nodes = {}
         nodes['bookcard'] = document.createElement('div');
         nodes['info-wrapper'] = document.createElement('div');
@@ -155,20 +186,77 @@ class LibraryInterface {
         return nodes['bookcard'];
     }
 
-
+    #updateCard(book, oldCard) {
+        oldCard.replaceWith(this.#createCard(book));
+    }
     
     //event listeners
-    #handleNewBook = (event) => {
-        this.#DOM.submitButton.textContent = "Add Book";
-        this.#DOM.formNode.querySelector('h1').textContent = "Add a New Book";
-        this.state.editMode = false;
-        this.#DOM.dialogNode.showModal();
+    #handleSubmit = (event) => {
+        event.preventDefault();
+   
+        if (!this.#DOM.formNode.checkValidity()) {
+            this.#DOM.formNode.reportValidity();
+            return;
+        }
+        const data = Object.fromEntries(new FormData(this.#DOM.formNode));
+        data.pages = Number(data.pages) || 0;
+        data.read = data.read === 'true';
+
+
+        //handle edit or new book
+        if (this.state.bookCardToEdit) {
+            let book = this.#Library.getBookById(this.state.bookCardToEdit.dataset.bookId);
+            book.update(data);
+            this.state.bookCardToEdit = null;
+        } else {
+            //adding
+            this.#Library.addBookToLibrary(data);
+        }
+
+        this.#DOM.formNode.reset();
+        this.#DOM.dialogNode.close();
+        this.renderLibraryCards();
     }
     #handleClickDelegation = (event) => {
         const button = event.target.closest('button');
         if (!button) return;
-        
         const bookCard = event.target.closest('.bookcard');
+        this.#handlers[button.dataset.type](event, {
+            bookCard: bookCard,
+            button: button
+        });
+    }
+    #handleDeleteClicked = (event, objects) => {
+        this.state.bookCardToDelete = objects.bookCard;
+        this.#DOM.confirmDialogNode.showModal();
+    }
+    #handleDeleteConfirmed = (event) => {
+        this.#Library.removeBookFromLibraryById(this.state.bookCardToDelete.dataset.bookId);
+        this.#handleClose(event);
+        this.renderLibraryCards();
+    }
+    #handleEditClicked = (event, objects) => {
+        this.state.bookCardToEdit = objects.bookCard;
+        // this.state.editMode = true;
+        let book = this.#Library.getBookById(objects.bookCard.dataset.bookId);
+        //prepopulate form for editing
+        this.#DOM.formNode.querySelector('input#title').value = book.title;
+        this.#DOM.formNode.querySelector('input#author').value = book.author;
+        this.#DOM.formNode.querySelector('input#pages').value = book.pages;
+        if (book.read) {
+            this.#DOM.formNode.querySelector('input#read').checked = true;
+        } else {
+            this.#DOM.formNode.querySelector('input#not-read').checked = true;
+        }
+        this.#DOM.submitButton.textContent = "Update";
+        this.#DOM.formNode.querySelector('h1').textContent = "Update a Book";
+        this.#DOM.dialogNode.showModal();
+
+    }
+    #handleReadClicked = (event, objects) => {
+        const book = this.#Library.getBookById(objects.bookCard.dataset.bookId)
+        book.toggleRead();
+        this.#updateCard(book, objects.bookCard)
     }
     #handleHover = (event) => {
         const button = event.target.closest('button');
@@ -177,7 +265,23 @@ class LibraryInterface {
         const use = button.querySelector('use');
         use.setAttribute('href', Utils.getIconID(button.dataset.type, event.type === 'mouseover', button.dataset.readState));
     }
+    #handleNewBook = (event) => {
+        this.#DOM.submitButton.textContent = "Add Book";
+        this.#DOM.formNode.querySelector('h1').textContent = "Add a New Book";
+        this.state.editMode = false;
+        this.#DOM.dialogNode.showModal();
+    }
+    #handleClose = (event) => {
+        let dialogToClose = event.target.closest('dialog');
+        this.#DOM.formNode.reset();
+        this.#clearState();
+        dialogToClose.close();
+    }
 
+    #clearState() {
+        this.state.bookCardToDelete = null;
+        this.state.bookCardToEdit = null;
+    }
     //static methods
     static #createSVGButton(id) {
         let btn = document.createElement("button");
@@ -216,4 +320,3 @@ class Utils {
 
 const library = new Library();
 const UI = new LibraryInterface(library);
-console.log(library.getBooks())
