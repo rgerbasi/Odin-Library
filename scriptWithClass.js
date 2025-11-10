@@ -31,6 +31,9 @@ class Book {
         const {  title, author, pages, read } = this;
         return { id: this.#id, title, author, pages, read };
     }
+    getID() {
+        return this.#id;
+    }
     update(properties = {}) {
         this.title = properties.title ?? this.title;
         this.author = properties.author ?? this.author;
@@ -88,8 +91,10 @@ class LibraryInterface {
     }
     //methods
     connectEventHandlers() {
-        this.#DOM.newBookButton.addEventListener('click', this.handleNewBook);
-        // this.#DOM.libraryDisplay.addEventListener('click', handleCardButtonsClicked);
+        this.#DOM.newBookButton.addEventListener('click', this.#handleNewBook);
+        this.#DOM.libraryDisplay.addEventListener('click', this.#handleClickDelegation);
+        this.#DOM.libraryDisplay.addEventListener('mouseover', this.#handleHover);
+        this.#DOM.libraryDisplay.addEventListener('mouseout', this.#handleHover);
     }
     cacheDOM() {
         this.#DOM = {
@@ -106,82 +111,74 @@ class LibraryInterface {
     }
     renderLibraryCards() {
         for (let book of this.#Library.getBooks()) {
-            let bookCard = new Card(book);
-            this.#DOM.libraryDisplay.appendChild(bookCard.getCard());
+            this.#DOM.libraryDisplay.appendChild(LibraryInterface.#createCard(book));
         }
     }
+    static #createCard(book) {
+        let nodes = {}
+        nodes['bookcard'] = document.createElement('div');
+        nodes['info-wrapper'] = document.createElement('div');
+        nodes['title'] = document.createElement('div');
+        nodes['hr'] = document.createElement('hr');
+        nodes['info'] = document.createElement('div');
+        nodes['button-wrapper'] = document.createElement('div');
+        nodes['buttons'] = {
+            'delete': LibraryInterface.#createSVGButton('#icon-close-outline'),
+            'edit': LibraryInterface.#createSVGButton('#icon-pencil-outline'),
+            'read': LibraryInterface.#createSVGButton('#icon-eye-outline')
+        };
+        //setting attributes
+        nodes['bookcard'].classList.add('bookcard');
+        nodes['bookcard'].setAttribute('data-book-id', book.getID());
+        nodes['info-wrapper'].classList.add('info-wrapper');
+        nodes['title'].classList.add('title');
+        nodes['title'].innerText = Utils.capitalize(book.title);
+        nodes['info'].classList.add('info');
+        nodes['info'].innerText = book.getInfoString();
+        nodes['button-wrapper'].classList.add('button-wrapper');
+        nodes['buttons']['read'].setAttribute('data-read-state', book.read)
+        for (let type in nodes['buttons']) {
+            nodes['buttons'][type].setAttribute('data-type', type )
+        }
+        if (book.read) { 
+            nodes['buttons']['read'].querySelector('use').setAttribute( 'href', '#icon-eye'); 
+        }
+        //assemble nodes
+        for ( let type in nodes['buttons']) {
+            nodes['button-wrapper'].appendChild(nodes['buttons'][type]);
+        }
+        nodes['info-wrapper'].appendChild(nodes['title']);
+        nodes['info-wrapper'].appendChild(nodes['hr']);
+        nodes['info-wrapper'].appendChild(nodes['info']);
+        nodes['bookcard'].appendChild(nodes['info-wrapper']);
+        nodes['bookcard'].appendChild(nodes['button-wrapper']);
+        return nodes['bookcard'];
+    }
+
+
     
     //event listeners
-    handleNewBook = (event) => {
+    #handleNewBook = (event) => {
         this.#DOM.submitButton.textContent = "Add Book";
         this.#DOM.formNode.querySelector('h1').textContent = "Add a New Book";
         this.state.editMode = false;
         this.#DOM.dialogNode.showModal();
     }
+    #handleClickDelegation = (event) => {
+        const button = event.target.closest('button');
+        if (!button) return;
+        
+        const bookCard = event.target.closest('.bookcard');
+    }
+    #handleHover = (event) => {
+        const button = event.target.closest('button');
+        if (!button) return;
+        if (event.relatedTarget && button.contains(event.relatedTarget)) return; //dont switch states if inside button
+        const use = button.querySelector('use');
+        use.setAttribute('href', Utils.getIconID(button.dataset.type, event.type === 'mouseover', button.dataset.readState));
+    }
 
-    //callbacks
-    
-}
-
-class Card {
-    #nodes = {};
-    book;
-  
-    constructor(book){
-        this.book = book;
-        this.#createCardNodes();
-        this.#setNodeAttributes(book);
-        this.#assembleCardNodes();
-    }
-      //methods
-    getCard() {
-        return this.#nodes['bookcard'];
-    }
-    //private methods
-    #createCardNodes() {
-        this.#nodes['bookcard'] = document.createElement('div');
-        this.#nodes['info-wrapper'] = document.createElement('div');
-        this.#nodes['title'] = document.createElement('div');
-        this.#nodes['hr'] = document.createElement('hr');
-        this.#nodes['info'] = document.createElement('div');
-        this.#nodes['button-wrapper'] = document.createElement('div');
-        let buttons = [
-            {btnNode: Card.#createSVGButton('#icon-close-outline'), type: 'delete'},
-            {btnNode: Card.#createSVGButton('#icon-pencil-outline'), type: 'edit'},
-            {btnNode: Card.#createSVGButton('#icon-eye-outline'), type: 'read'}
-        ];
-        this.#nodes['buttons'] = buttons;
-        this.#nodes['bookcard'].classList.add('bookcard');
-    }
-    #setNodeAttributes(book) {
-        //setting attributes
-        this.#nodes['bookcard'].setAttribute('data-book-id', book.getProperties().id);
-        this.#nodes['info-wrapper'].classList.add('info-wrapper');
-        this.#nodes['title'].classList.add('title');
-        this.#nodes['title'].innerText = Utils.capitalize(book.title);
-        this.#nodes['info'].classList.add('info');
-        this.#nodes['info'].innerText = book.getInfoString();
-        this.#nodes['button-wrapper'].classList.add('button-wrapper');
-        for ( let button of this.#nodes['buttons']) {
-            button.btnNode.setAttribute('data-type', button.type);
-            if (button.type === 'read' ) {
-                //read status
-                button.btnNode.setAttribute('data-read-state', book.read);
-                if (book.read) { button.btnNode.querySelector('use').setAttribute( 'href', '#icon-eye'); }
-            }
-        }
-    }
-    #assembleCardNodes() {
-        //assemble nodes
-        for ( let button of this.#nodes['buttons']) {
-            this.#nodes['button-wrapper'].appendChild(button.btnNode);
-        }
-        this.#nodes['info-wrapper'].appendChild(this.#nodes['title']);
-        this.#nodes['info-wrapper'].appendChild(this.#nodes['hr']);
-        this.#nodes['info-wrapper'].appendChild(this.#nodes['info']);
-        this.#nodes['bookcard'].appendChild(this.#nodes['info-wrapper']);
-        this.#nodes['bookcard'].appendChild(this.#nodes['button-wrapper']);
-    }
+    //static methods
     static #createSVGButton(id) {
         let btn = document.createElement("button");
         let svg = document.createElementNS("http://www.w3.org/2000/svg", 'svg')
@@ -193,13 +190,26 @@ class Card {
         btn.appendChild(svg);
         return btn;
     }
-
 }
+
 
 class Utils {
     static capitalize(words) {
         if (words == null) return;
         return words.split(" ").map( word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ");
+    }
+
+    static getIconID(buttonType, isHovering, readState) {
+        //ishovering is true when mouse over fired, 
+        const icons = {
+            delete: { normal: '#icon-close-outline', hover: '#icon-close'},
+            edit: { normal: '#icon-pencil-outline', hover: '#icon-pencil'},
+            read: {
+                normal: readState === 'true' ? '#icon-eye' : '#icon-eye-outline',
+                hover: readState === 'true' ? '#icon-eye-outline' : '#icon-eye'
+            }
+        }
+        return isHovering ? icons[buttonType].hover : icons[buttonType].normal;
     }
 
 }
